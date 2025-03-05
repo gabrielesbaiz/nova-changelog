@@ -4,7 +4,6 @@
 
         <Heading class="mb-6">{{ __("Changelog") }}</Heading>
 
-        <!-- Year Selection Menu -->
         <div class="mb-4 flex space-x-2">
             <button
                 v-for="year in availableYears"
@@ -12,7 +11,7 @@
                 @click="selectedYear = year"
                 class="px-4 py-2 text-sm font-bold rounded transition"
                 :class="{
-                    'bg-blue-600 text-white': selectedYear === year,
+                    'bg-primary-500 text-white': selectedYear === year,
                     'bg-gray-200 text-gray-700': selectedYear !== year,
                 }"
             >
@@ -20,11 +19,16 @@
             </button>
         </div>
 
-        <!-- Display Changelog by Selected Year -->
         <Card
-            class="px-6 pt-4 pb-2 mb-4"
-            v-for="changelogData in changelogDatas[selectedYear]"
+            class="px-6 pt-4 pb-2 mb-4 transition duration-200 card-no-select"
+            v-for="(changelogData, index) in changelogDatas[selectedYear]"
             :key="changelogData.title"
+            :class="{
+                'bg-yellow-100 hover:bg-blue-100':
+                    selectedYear === currentYear && index === 0,
+                'hover:bg-blue-100':
+                    selectedYear !== currentYear || index !== 0,
+            }"
         >
             <div class="float-right text-xs font-light">
                 {{ changelogData.date }}
@@ -32,6 +36,12 @@
 
             <h3 class="mb-3 text-base font-bold tracking-wide uppercase">
                 {{ changelogData.title }}
+                <span
+                    v-if="selectedYear === currentYear && index === 0"
+                    class="text-sm font-bold text-gray-700"
+                >
+                    - CURRENT VERSION
+                </span>
             </h3>
 
             <div
@@ -59,6 +69,15 @@
     </div>
 </template>
 
+<style scoped>
+.card-no-select {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+</style>
+
 <script>
 export default {
     data() {
@@ -66,6 +85,7 @@ export default {
             changelogDatas: {},
             availableYears: [],
             selectedYear: new Date().getFullYear().toString(),
+            currentYear: new Date().getFullYear().toString(),
         };
     },
     mounted() {
@@ -78,7 +98,6 @@ export default {
             );
             this.changelogDatas = response.data;
 
-            // Extract available years from the API response
             this.availableYears = Object.keys(this.changelogDatas).sort(
                 (a, b) => b - a
             );
