@@ -31,48 +31,43 @@ class ToolController extends Controller
 
         $html = (string) new HtmlString($converter->convertToHtml($changelogMarkdown));
 
-        $crawledNodes = (new Crawler($html))->filter('h2, h3, li')->each(function ($node, $i) {
-            return $node->nodeName();
-        });
+        $crawledNodes = (new Crawler($html))->filter('h2, h3, li')->each(fn ($node) => $node->nodeName());
 
-        $crawledHtml = (new Crawler($html))->filter('h2, h3, li')->each(function ($node, $i) {
-            return $node->html();
-        });
+        $crawledHtml = (new Crawler($html))->filter('h2, h3, li')->each(fn ($node) => $node->html());
 
         $data = [];
 
         $h2Key = -1;
 
-        foreach ($crawledNodes as $crawledNodeKey => $crawledNode) {
-            if ($crawledNode == 'h2') {
-                $crawledNodeKeyH2 = $crawledNodeKey;
-
+        foreach ($crawledNodes as $key => $node) {
+            if ($node === 'h2') {
                 $h2Key++;
 
                 $h3Key = -1;
 
-                preg_match('/^(.*?)\s\((.*?)\)/', $crawledHtml[$crawledNodeKeyH2], $h2Title);
+                preg_match('/^(.*?)\s\((\d{2})\.(\d{2})\.(\d{4})\)/', $crawledHtml[$key], $h2Title);
 
-                $data[$h2Key]['title'] = $h2Title[1];
-                $data[$h2Key]['date'] = $h2Title[2];
+                $version = $h2Title[1] ?? 'Unknown';
+
+                $year = $h2Title[4] ?? date('Y');
+
+                $data[$year][$h2Key]['title'] = $version;
+
+                $data[$year][$h2Key]['date'] = "{$h2Title[2]}.{$h2Title[3]}.{$h2Title[4]}";
             }
 
-            if ($crawledNode == 'h3') {
-                $crawledNodeKeyH3 = $crawledNodeKey;
-
+            if ($node === 'h3') {
                 $h3Key++;
 
                 $liKey = -1;
 
-                $data[$h2Key]['components'][$h3Key]['subTitle'] = $crawledHtml[$crawledNodeKeyH3];
+                $data[$year][$h2Key]['components'][$h3Key]['subTitle'] = $crawledHtml[$key];
             }
 
-            if ($crawledNode == 'li') {
-                $crawledNodeKeyLi = $crawledNodeKey;
-
+            if ($node === 'li') {
                 $liKey++;
 
-                $data[$h2Key]['components'][$h3Key]['list'][$liKey] = $crawledHtml[$crawledNodeKeyLi];
+                $data[$year][$h2Key]['components'][$h3Key]['list'][$liKey] = $crawledHtml[$key];
             }
         }
 
