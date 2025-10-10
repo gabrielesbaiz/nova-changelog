@@ -11,71 +11,79 @@ use League\CommonMark\Extension\Table\TableExtension;
 
 class ToolController extends Controller
 {
-    public function index()
+    /**
+     * Handle changelog rendering.
+     *
+     * @return array
+     */
+    public function index(): array
     {
-        $changelogFile = base_path() . '/changelog.md';
+        $changelogFile = config('nova-changelog.path', base_path('changelog.md'));
 
-        if (! file_exists($changelogFile)) {
+        if (! is_file($changelogFile)) {
             file_put_contents($changelogFile, '## [Unreleased]');
         }
 
-        $changelogMarkdown = file_get_contents($changelogFile);
+        $markdown = file_get_contents($changelogFile);
 
-        $environment = Environment::createCommonMarkEnvironment();
+        $converter = new CommonMarkConverter(
+            ['allow_unsafe_links' => false],
+            tap(Environment::createCommonMarkEnvironment(), fn ($env) => $env->addExtension(new TableExtension))
+        );
 
-        $environment->addExtension(new TableExtension);
+        $html = (string) new HtmlString($converter->convertToHtml($markdown));
 
-        $converter = new CommonMarkConverter([
-            'allow_unsafe_links' => false,
-        ], $environment);
+        $crawler = new Crawler($html);
 
-        $html = (string) new HtmlString($converter->convertToHtml($changelogMarkdown));
+        $nodes = $crawler->filter('h2, h3, li');
 
-        $crawledNodes = (new Crawler($html))->filter('h2, h3, li')->each(fn ($node) => $node->nodeName());
-
-        $crawledHtml = (new Crawler($html))->filter('h2, h3, li')->each(fn ($node) => $node->html());
+        if ($nodes->count() === 0) {
+            return [];
+        }
 
         $data = [];
-
         $h2Key = -1;
+        $h3Key = -1;
+        $year = date('Y');
 
-        foreach ($crawledNodes as $key => $node) {
-            if ($node === 'h2') {
+        foreach ($nodes as $node) {
+            $name = $node->nodeName;
+            $content = trim($node->textContent);
+
+            if ($name === 'h2') {
                 $h2Key++;
-
                 $h3Key = -1;
 
-                if (preg_match('/^(.*?)\s\((\d{2})\.(\d{2})\.(\d{4})\)/', $crawledHtml[$key], $h2Title)) {
-                    $version = $h2Title[1] ?? 'Unknown';
-
-                    $year = $h2Title[4] ?? date('Y');
-
-                    $date = "{$h2Title[2]}.{$h2Title[3]}.{$h2Title[4]}";
-
-                    $data[$year][$h2Key]['title'] = $version;
-
-                    $data[$year][$h2Key]['date'] = $date;
+                if (preg_match('/^(.*?)\s\((\d{2})\.(\d{2})\.(\d{4})\)/', $content, $matches)) {
+                    $version = $matches[1];
+                    $year = $matches[4];
+                    $date = "{$matches[2]}.{$matches[3]}.{$matches[4]}";
                 } else {
-                    $year = date('Y');
-
-                    $data[$year][$h2Key]['title'] = 'Unknown';
-
-                    $data[$year][$h2Key]['date'] = 'Unknown';
+                    $version = 'Unknown';
+                    $date = 'Unknown';
                 }
+
+                $data[$year][$h2Key] = [
+                    'title' => $version,
+                    'date' => $date,
+                    'components' => [],
+                ];
+
+                continue;
             }
 
-            if ($node === 'h3') {
+            if ($name === 'h3') {
                 $h3Key++;
+                $data[$year][$h2Key]['components'][$h3Key] = [
+                    'subTitle' => $content,
+                    'list' => [],
+                ];
 
-                $liKey = -1;
-
-                $data[$year][$h2Key]['components'][$h3Key]['subTitle'] = $crawledHtml[$key] ?? '';
+                continue;
             }
 
-            if ($node === 'li') {
-                $liKey++;
-
-                $data[$year][$h2Key]['components'][$h3Key]['list'][$liKey] = $crawledHtml[$key] ?? '';
+            if ($name === 'li') {
+                $data[$year][$h2Key]['components'][$h3Key]['list'][] = $content;
             }
         }
 
