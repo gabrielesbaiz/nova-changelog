@@ -13,7 +13,7 @@ class ToolController extends Controller
 {
     public function index()
     {
-        $changelogFile = base_path() . '/changelog.md';
+        $changelogFile = config('nova-changelog.path', base_path('changelog.md'));
 
         if (! file_exists($changelogFile)) {
             file_put_contents($changelogFile, '## [Unreleased]');
@@ -47,34 +47,27 @@ class ToolController extends Controller
 
                 if (preg_match('/^(.*?)\s\((\d{2})\.(\d{2})\.(\d{4})\)/', $crawledHtml[$key], $h2Title)) {
                     $version = $h2Title[1] ?? 'Unknown';
-
                     $year = $h2Title[4] ?? date('Y');
-
                     $date = "{$h2Title[2]}.{$h2Title[3]}.{$h2Title[4]}";
 
                     $data[$year][$h2Key]['title'] = $version;
-
                     $data[$year][$h2Key]['date'] = $date;
                 } else {
                     $year = date('Y');
 
                     $data[$year][$h2Key]['title'] = 'Unknown';
-
                     $data[$year][$h2Key]['date'] = 'Unknown';
                 }
             }
 
             if ($node === 'h3') {
                 $h3Key++;
-
                 $liKey = -1;
-
                 $data[$year][$h2Key]['components'][$h3Key]['subTitle'] = $crawledHtml[$key] ?? '';
             }
 
             if ($node === 'li') {
                 $liKey++;
-
                 $data[$year][$h2Key]['components'][$h3Key]['list'][$liKey] = $crawledHtml[$key] ?? '';
             }
         }
