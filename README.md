@@ -28,7 +28,14 @@ public function tools()
     {
         return [
             ...
-            new NovaChangelog()
+
+            // Default usage
+            new NovaChangelog(),
+
+
+            // Custom changelog file path
+            (new NovaChangelog())
+                ->changelogPath(base_path('custom-changelog.md')),
 
         ];
     }
@@ -36,6 +43,7 @@ public function tools()
 }
 
 ```
+
 
 ## Testing
 
